@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% block title %}Edit{% endblock %}
+
+{% block head %}
+    <script type="text/javascript" src="/static_media/js/jquery.js"></script>
+    <script type="text/javascript" src="/static_media/js/jquery.jstree.js"></script>
+{% endblock %}
+
+{% block content %}
+Edit: 
+
+{{ form.as_p }}
+
+<br /><br /><br />
+
+Response:
+<br />
+
+<div id="mmenu" style="height:30px; overflow:auto;">
+
+    <input type="button" id="add_hangup" value="add hangup" style="display:block; float:left;"/>
+    <input type="button" id="add_pause" value="add pause" style="display:block; float:left;"/>
+    <input type="button" id="add_say" value="add say" style="display:block; float:left;"/>
+    <input type="button" id="add_hangup" value="add hangup" style="display:block; float:left;"/>
+    <input type="button" id="add_hangup" value="add hangup" style="display:block; float:left;"/>
+    <input type="button" id="add_hangup" value="add hangup" style="display:block; float:left;"/>
+    <input type="button" id="add_hangup" value="add hangup" style="display:block; float:left;"/>
+    <input type="button" id="remove" value="remove node" style="display:block; float:left;"/>
+
+
+</div>
+
+<br />
+
+<div id="verb_tree" class="verb_tree">
+    <ul>
+        <li class="jstree-open" rel="response">
+            <a href="#">{{ response.name }}</a>
+            <ul>
+                {% for verb_form in verb_forms %}
+                <li style='background-color: red'>
+                    <a href="#">{{ verb_form.instance.cast }}</a>
+                    {{ verb_form.as_p }}
+                </li>
+                {% endfor %}
+            </ul>
+        </li>
+    </ul>
+</div>
+
+
+
+<!-- JavaScript neccessary for the tree -->
+<script type="text/javascript">
+$(function () {
+	// Settings up the tree - using $(selector).jstree(options);
+	// All those configuration options are documented in the _docs folder
+	$("#verb_tree")
+		.jstree({ 
+			"plugins" : [ "themes", "html_data", "ui", "crrm", "dnd", "types", "contextmenu" ],
+
+			"types" : {
+				"max_depth" : -2,
+				"max_children" : -2,
+				// I want only `response` nodes to be root nodes 
+				// This will prevent moving or creating any other type as a root node
+				"valid_children" : [ "response" ],
+				"types" : {
+					// The default type
+					"default" : {
+						"valid_children" : "none",
+						"icon" : {
+							"image" : "/static_media/images/file.png"
+						}
+					},
+					"gather" : {
+						"valid_children" : [ "say", "pause" ],
+						"icon" : {
+							"image" : "/static_media/file.png"
+						}
+					},
+					"dial" : {
+						"valid_children" : [ "number", "conference" ],
+						"icon" : {
+							"image" : "/static_media/file.png"
+						}
+					},
+					"response" : {
+						"valid_children" : "all",
+						"icon" : {
+							"image" : "/file.png"
+						},
+						"start_drag" : false,
+						"move_node" : false,
+						"delete_node" : false,
+						"remove" : false
+					}
+				}
+            },
+            "themes" : {
+                "theme" : "apple"
+            }, 
+            "ui" : {
+                "initially_select" : [ "root" ]
+            },
+			"core" : { 
+				"initially_open" : [ "root" ] 
+			}
+		})
+		.bind("create.jstree", function (e, data) {
+			$.post(
+				"./server.php", 
+				{ 
+					"operation" : "create_node", 
+					"id" : data.rslt.parent.attr("id"), 
+					"position" : data.rslt.position,
+					"title" : data.rslt.name,
+					"type" : data.rslt.obj.attr("rel")
+				}, 
+				function (r) {
+					if(r.status) {
+						$(data.rslt.obj).attr("id", "node_" + r.id);
+					}
+					else {
+						$.jstree.rollback(data.rlbk);
+					}
+				}
+			);
+		})
+		.bind("delete.jstree", function (e, data) {
+			data.rslt.obj.each(function () {
+				$.ajax({
+					async : false,
+					type: 'POST',
+					url: "./server.php",
+					data : { 
+						"operation" : "remove_node", 
+						"id" : this.id.replace("node_","")
+					}, 
+					success : function (r) {
+						if(!r.status) {
+							data.inst.refresh();
+						}
+					}
+				});
+			});
+		})
+		.bind("move_node.jstree", function (e, data) {
+			data.rslt.o.each(function (i) {
+				$.ajax({
+					async : false,
+					type: 'POST',
+					url: "./server.php",
+					data : { 
+						"operation" : "move_node", 
+						"id" : $(this).attr("id").replace("node_",""), 
+						"ref" : data.rslt.np.attr("id").replace("node_",""), 
+						"position" : data.rslt.cp + i,
+						"title" : data.rslt.name,
+						"copy" : data.rslt.cy ? 1 : 0
+					},
+					success : function (r) {
+						if(!r.status) {
+							$.jstree.rollback(data.rlbk);
+						}
+						else {
+							$(data.rslt.oc).attr("id", "node_" + r.id);
+							if(data.rslt.cy && $(data.rslt.oc).children("UL").length) {
+								data.inst.refresh(data.inst._get_parent(data.rslt.oc));
+							}
+						}
+						$("#analyze").click();
+					}
+				});
+			});
+		});
+});
+</script>
+
+<script type="text/javascript">
+$(function () { 
+	$("#mmenu input").click(function () {
+        switch(this.id) {
+            case "add_hangup":
+            case "add_pause":
+			case "add_default":
+                $("#verb_tree").jstree("create", null, "last", { "attr": { } });
+				break;
+            case "remove":
+                $("#verb_tree").jstree("remove");
+                break;
+            default:
+				$("#verb_tree").jstree(this.id);
+				break;
+		}
+	});
+});
+</script>
+
+
+{% endblock %}
