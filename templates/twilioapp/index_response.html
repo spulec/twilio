@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+Index<br />
+
+{% for response in responses %}
+    {{ response.name }}:
+    <a href="{% url twilioproj.twilioapp.views.view_response response.name %}">View</a>:
+    <a href="{% url twilioproj.twilioapp.views.edit_response response.name %}">Edit</a><br />
+{% endfor %}
+
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block title %}Home{% endblock %}
+
+{% block content %}
+Index<br />
+
+{% for number in  numbers %}
+    {{ number.name }}:{{ number.phone_number }}<br />
+{% endfor %}
+
+{% endblock %}
